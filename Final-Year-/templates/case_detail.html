@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Case #{{ case.id }} - FIR Management System{% endblock %}
+
+{% block content %}
+<div class="case-detail">
+    <div class="case-header">
+        <h2>Case #{{ case.id }}</h2>
+        <div class="case-status">
+            <span class="status-badge status-{{ case.status }}">{{ case.status.replace('_', ' ').title() }}</span>
+            {% if case.status == 'writer' %}
+                <p class="status-description">Status: Awaiting submission to Sub Inspector</p>
+            {% elif case.status == 'sub_inspector' %}
+                <p class="status-description">Status: Under investigation by Sub Inspector</p>
+            {% elif case.status == 'inspector' %}
+                <p class="status-description">Status: Awaiting approval from Inspector</p>
+            {% elif case.status == 'court' %}
+                <p class="status-description">Status: Submitted to Court</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="case-info">
+        <div class="info-section">
+            <h3>Statement</h3>
+            <div class="statement-box">{{ case.statement }}</div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Extracted Keywords</h3>
+            <div class="keywords-box">
+                {% if case.keywords %}
+                    {% set keywords = case.keywords|from_json %}
+                    {% for keyword in keywords %}
+                        <span class="keyword-badge">{{ keyword }}</span>
+                    {% endfor %}
+                {% else %}
+                    <span class="text-muted">No keywords extracted</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Allocated IPC Sections</h3>
+            <div class="ipc-sections-box">
+                {% if case.ipc_sections %}
+                    {% set sections = case.ipc_sections|from_json %}
+                    {% for section in sections %}
+                        <div class="ipc-section-item">
+                            <strong>IPC Section {{ section }}</strong>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <span class="text-muted">No IPC sections allocated</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Case Information</h3>
+            <table class="info-table">
+                <tr>
+                    <td><strong>Input Type:</strong></td>
+                    <td>{{ case.input_type.title() }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Aadhaar Number:</strong></td>
+                    <td>{{ case.aadhaar_number or 'Not provided' }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Created By:</strong></td>
+                    <td>{{ case.creator.name }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Created At:</strong></td>
+                    <td>{{ case.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% if case.investigated_by %}
+                <tr>
+                    <td><strong>Investigated By:</strong></td>
+                    <td>{{ case.investigator.name }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Investigation Date:</strong></td>
+                    <td>{{ case.investigation_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% endif %}
+                {% if case.approved_by %}
+                <tr>
+                    <td><strong>Approved By:</strong></td>
+                    <td>{{ case.approver.name }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Approval Date:</strong></td>
+                    <td>{{ case.approval_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        </div>
+        
+        <div class="info-section">
+            <h3>Evidence Inventory (Visible to All Station Personnel)</h3>
+            {% if evidence %}
+            <div class="evidence-list">
+                {% for ev in evidence %}
+                <div class="evidence-item">
+                    <div class="evidence-info">
+                        <strong>{{ ev.description }}</strong>
+                        <small>Uploaded by {{ ev.uploader.name }} ({{ ev.uploader.role.replace('_', ' ').title() }}) on {{ ev.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        <div class="evidence-actions">
+                            <a href="{{ url_for('view_evidence', case_id=case.id, evidence_id=ev.id) }}" target="_blank" class="btn-view-small">View File</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No evidence added yet.</p>
+            {% endif %}
+            
+            <form id="evidenceForm" class="evidence-form">
+                <div class="form-group">
+                    <label for="evidence_description">Evidence Description</label>
+                    <input type="text" id="evidence_description" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="evidence_file">Evidence File</label>
+                    <input type="file" id="evidence_file" name="evidence_file" required>
+                </div>
+                <button type="submit" class="btn-primary">Add Evidence</button>
+            </form>
+        </div>
+        
+        <div class="case-actions">
+            <div class="workflow-actions">
+                {% if current_user.role == 'writer' and case.status == 'writer' %}
+                <button onclick="submitCase()" class="btn-primary">Submit to Sub Inspector</button>
+                {% elif current_user.role == 'sub_inspector' and case.status == 'sub_inspector' %}
+                <button onclick="investigateCase()" class="btn-primary">Complete Investigation</button>
+                {% elif current_user.role == 'inspector' and case.status == 'inspector' %}
+                <button onclick="approveCase()" class="btn-primary">Approve & Send to Court</button>
+                {% endif %}
+            </div>
+            <div class="case-management-actions">
+                <a href="{{ url_for('download_case', case_id=case.id) }}" class="btn-secondary">Download FIR Copy</a>
+                {% if current_user.role == 'writer' and case.created_by == current_user.id %}
+                <a href="{{ url_for('edit_case', case_id=case.id) }}" class="btn-edit">Edit Case</a>
+                <button onclick="deleteCase()" class="btn-delete">Delete Case</button>
+                {% elif current_user.role in ['sub_inspector', 'inspector'] %}
+                <a href="{{ url_for('edit_case', case_id=case.id) }}" class="btn-edit">Edit Case</a>
+                <button onclick="deleteCase()" class="btn-delete">Delete Case</button>
+                {% endif %}
+                <a href="{{ url_for('dashboard') }}" class="btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function submitCase() {
+    if (confirm('Submit this case to Sub Inspector for investigation?')) {
+        const response = await fetch('/case/{{ case.id }}/submit', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to submit'));
+        }
+    }
+}
+
+async function investigateCase() {
+    if (confirm('Mark this case as investigated and forward to Inspector?')) {
+        const response = await fetch('/case/{{ case.id }}/investigate', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update'));
+        }
+    }
+}
+
+async function approveCase() {
+    if (confirm('Approve this case and send it to Court?')) {
+        const response = await fetch('/case/{{ case.id }}/approve', { method: 'POST' });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to approve'));
+        }
+    }
+}
+
+async function deleteCase() {
+    if (confirm('Are you sure you want to delete this case? This action cannot be undone and will also delete all associated evidence.')) {
+        try {
+            const response = await fetch('/case/{{ case.id }}/delete', { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                alert('Case deleted successfully.');
+                window.location.href = '{{ url_for("dashboard") }}';
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete case'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+
+document.getElementById('evidenceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/case/{{ case.id }}/evidence', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to add evidence'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Create Case - FIR Management System{% endblock %}
+
+{% block content %}
+<div class="create-case">
+    <h2>Create New FIR Case</h2>
+    
+    <form id="caseForm" class="case-form">
+        <div class="form-group">
+            <label for="aadhaar_number">Aadhaar Number</label>
+            <input type="text" id="aadhaar_number" name="aadhaar_number" maxlength="12" pattern="\d{12}" placeholder="Enter 12-digit Aadhaar number" required>
+            <small>Used to find previous FIR history for the same person.</small>
+        </div>
+        <div class="form-group">
+            <label for="input_type">Input Type</label>
+            <select id="input_type" name="input_type" required onchange="toggleInputFields()">
+                <option value="text">Text</option>
+                <option value="audio">Audio</option>
+                <option value="video">Video</option>
+                <option value="image">Image</option>
+            </select>
+        </div>
+        
+        <div id="text_input" class="input-section">
+            <div class="form-group">
+                <label for="statement_text">Statement</label>
+                <textarea id="statement_text" name="statement_text" rows="10" placeholder="Enter the FIR statement here..."></textarea>
+            </div>
+        </div>
+        
+        <div id="audio_input" class="input-section" style="display: none;">
+            <div class="form-group">
+                <label>Audio Input Method</label>
+                <div class="audio-options">
+                    <button type="button" id="recordBtn" class="btn-record" onclick="toggleRecording()">
+                        <span id="recordIcon">🎤</span> <span id="recordText">Start Recording</span>
+                    </button>
+                    <span class="or-divider">OR</span>
+                    <label for="audio_file" class="btn-upload">
+                        📁 Upload Audio File
+                        <input type="file" id="audio_file" name="audio_file" accept="audio/*" style="display: none;" onchange="handleAudioUpload(event)">
+                    </label>
+                </div>
+                <div id="audioStatus" class="audio-status" style="display: none;">
+                    <p id="audioStatusText"></p>
+                    <audio id="audioPreview" controls style="display: none; width: 100%; margin-top: 10px;"></audio>
+                </div>
+                <small>Supported formats: MP3, WAV, M4A</small>
+            </div>
+        </div>
+
+        <div id="video_input" class="input-section" style="display: none;">
+            <div class="form-group">
+                <label for="video_file">Upload Video File</label>
+                <input type="file" id="video_file" name="video_file" accept="video/*">
+                <small>Speech will be extracted from the video audio track.</small>
+            </div>
+        </div>
+        
+        <div id="image_input" class="input-section" style="display: none;">
+            <div class="form-group">
+                <label for="image_file">Upload Image File</label>
+                <input type="file" id="image_file" name="image_file" accept="image/*" onchange="handleImageUpload(event)">
+                <small>Supported formats: JPG, PNG, GIF, BMP</small>
+            </div>
+            <div class="form-group">
+                <label for="image_description">Image Description (Optional)</label>
+                <textarea id="image_description" name="image_description" rows="5" placeholder="Optionally add additional details or description. OCR will automatically extract text from the image."></textarea>
+                <small style="color: #666;">Text will be automatically extracted from the image using OCR. You can add additional details if needed.</small>
+            </div>
+            <div id="imagePreview" style="display: none; margin-top: 10px;">
+                <img id="previewImg" src="" alt="Preview" style="max-width: 100%; max-height: 300px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+        </div>
+
+        <div id="media_description_group" class="form-group" style="display: none;">
+            <label for="media_description">Additional Details (Recommended for Audio/Video)</label>
+            <textarea id="media_description" name="media_description" rows="4" placeholder="Add manual details in case speech extraction misses important context."></textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Process & Create Case</button>
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+    
+    <div id="processing" class="processing-message" style="display: none;">
+        <p>Processing your input... This may take a few moments.</p>
+    </div>
+</div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+let recordedBlob = null;
+
+function toggleInputFields() {
+    const inputType = document.getElementById('input_type').value;
+    document.getElementById('text_input').style.display = inputType === 'text' ? 'block' : 'none';
+    document.getElementById('audio_input').style.display = inputType === 'audio' ? 'block' : 'none';
+    document.getElementById('video_input').style.display = inputType === 'video' ? 'block' : 'none';
+    document.getElementById('image_input').style.display = inputType === 'image' ? 'block' : 'none';
+    document.getElementById('media_description_group').style.display = ['audio', 'video'].includes(inputType) ? 'block' : 'none';
+    
+    // Stop recording if switching away from audio
+    if (inputType !== 'audio' && isRecording) {
+        stopRecording();
+    }
+}
+
+async function toggleRecording() {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Determine the best MIME type supported by the browser
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            mimeType = 'audio/ogg';
+        }
+        
+        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            if (audioChunks.length > 0) {
+                // Use the same MIME type for the blob
+                recordedBlob = new Blob(audioChunks, { type: mimeType });
+                const audioUrl = URL.createObjectURL(recordedBlob);
+                document.getElementById('audioPreview').src = audioUrl;
+                document.getElementById('audioPreview').style.display = 'block';
+                document.getElementById('audioStatusText').textContent = 'Recording completed. You can preview it below.';
+                document.getElementById('audioStatus').style.display = 'block';
+            } else {
+                document.getElementById('audioStatusText').textContent = 'Error: No audio data recorded. Please try again.';
+                recordedBlob = null;
+            }
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('recordIcon').textContent = '⏹️';
+        document.getElementById('recordText').textContent = 'Stop Recording';
+        document.getElementById('recordBtn').classList.add('recording');
+        document.getElementById('audioStatusText').textContent = 'Recording... Click Stop when done.';
+        document.getElementById('audioStatus').style.display = 'block';
+    } catch (error) {
+        alert('Error accessing microphone: ' + error.message);
+        console.error('Microphone error:', error);
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        isRecording = false;
+        document.getElementById('recordIcon').textContent = '🎤';
+        document.getElementById('recordText').textContent = 'Start Recording';
+        document.getElementById('recordBtn').classList.remove('recording');
+    }
+}
+
+function handleAudioUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const audioUrl = URL.createObjectURL(file);
+        document.getElementById('audioPreview').src = audioUrl;
+        document.getElementById('audioPreview').style.display = 'block';
+        document.getElementById('audioStatusText').textContent = 'Audio file selected: ' + file.name;
+        document.getElementById('audioStatus').style.display = 'block';
+        recordedBlob = null; // Clear recorded audio if file is uploaded
+    }
+}
+
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('previewImg').src = e.target.result;
+            document.getElementById('imagePreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+document.getElementById('caseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const processingDiv = document.getElementById('processing');
+    processingDiv.style.display = 'block';
+    
+    // If audio was recorded, add it to form data
+    const inputType = document.getElementById('input_type').value;
+    const aadhaarInput = document.getElementById('aadhaar_number');
+    if (!/^\d{12}$/.test(aadhaarInput.value.trim())) {
+        alert('Please enter a valid 12-digit Aadhaar number.');
+        processingDiv.style.display = 'none';
+        return;
+    }
+
+    if (inputType === 'audio') {
+        if (recordedBlob && recordedBlob.size > 0) {
+            // Determine file extension based on blob type
+            let extension = 'webm';
+            if (recordedBlob.type.includes('mp4')) extension = 'mp4';
+            else if (recordedBlob.type.includes('ogg')) extension = 'ogg';
+            else if (recordedBlob.type.includes('wav')) extension = 'wav';
+            
+            const audioFile = new File([recordedBlob], `recording.${extension}`, { type: recordedBlob.type });
+            formData.append('audio_file', audioFile);
+        } else {
+            // Check if file was uploaded instead
+            const audioFileInput = document.getElementById('audio_file');
+            if (!audioFileInput.files || audioFileInput.files.length === 0) {
+                alert('Please record audio or upload an audio file before submitting.');
+                processingDiv.style.display = 'none';
+                return;
+            }
+        }
+    }
+
+    if (inputType === 'video') {
+        const videoFileInput = document.getElementById('video_file');
+        if (!videoFileInput.files || videoFileInput.files.length === 0) {
+            alert('Please upload a video file before submitting.');
+            processingDiv.style.display = 'none';
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch('{{ url_for("create_case") }}', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/case/' + data.case_id;
+        } else {
+            alert('Error: ' + (data.error || 'Failed to create case'));
+            processingDiv.style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        processingDiv.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Case #{{ case.id }} - FIR Management System{% endblock %}
+
+{% block content %}
+<div class="create-case">
+    <h2>Edit Case #{{ case.id }}</h2>
+    
+    <form id="editCaseForm" class="case-form">
+        <div class="form-group">
+            <label for="statement">Statement</label>
+            <textarea id="statement" name="statement" rows="15" required>{{ case.statement }}</textarea>
+            <small>Update the statement. Keywords and IPC sections will be automatically recalculated.</small>
+        </div>
+        
+        <div class="info-section" style="margin-top: 1.5rem; padding: 1rem; background-color: #f9f9f9; border-radius: 4px;">
+            <h4>Current Information</h4>
+            <p><strong>Status:</strong> <span class="status-badge status-{{ case.status }}">{{ case.status.replace('_', ' ').title() }}</span></p>
+            <p><strong>Input Type:</strong> {{ case.input_type.title() }}</p>
+            <p><strong>Created:</strong> {{ case.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            {% if case.ipc_sections %}
+                <p><strong>Current IPC Sections:</strong>
+                    {% set sections = case.ipc_sections|from_json %}
+                    {% for section in sections %}
+                        <span class="ipc-badge">{{ section }}</span>
+                    {% endfor %}
+                </p>
+            {% endif %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Update Case</button>
+            <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+    
+    <div id="processing" class="processing-message" style="display: none;">
+        <p>Updating case... This may take a few moments.</p>
+    </div>
+</div>
+
+<script>
+document.getElementById('editCaseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const processingDiv = document.getElementById('processing');
+    processingDiv.style.display = 'block';
+    
+    try {
+        const response = await fetch('{{ url_for("edit_case", case_id=case.id) }}', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/case/' + data.case_id;
+        } else {
+            alert('Error: ' + (data.error || 'Failed to update case'));
+            processingDiv.style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        processingDiv.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

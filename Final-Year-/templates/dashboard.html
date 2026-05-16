@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FIR Management System{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h2>Dashboard</h2>
+        {% if role == 'writer' %}
+        <a href="{{ url_for('create_case') }}" class="btn-primary">Create New Case</a>
+        {% endif %}
+    </div>
+
+    <div class="cases-list" style="margin-bottom: 20px;">
+        <h3>Search Crime History by Aadhaar</h3>
+        <form method="GET" action="{{ url_for('dashboard') }}" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="text" name="aadhaar_search" value="{{ aadhaar_query }}" maxlength="12" pattern="\d{12}" placeholder="Enter 12-digit Aadhaar number" style="padding: 8px; min-width: 280px;">
+            <button type="submit" class="btn-primary">Search</button>
+            {% if aadhaar_query %}
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary">Clear</a>
+            {% endif %}
+        </form>
+
+        {% if aadhaar_query %}
+            <div style="margin-top: 15px;">
+                <p><strong>Results for Aadhaar {{ aadhaar_query }}:</strong> {{ history_results|length }} case(s)</p>
+                {% if history_results %}
+                    <ul>
+                    {% for case in history_results %}
+                        <li>
+                            Case #{{ case.id }} - {{ case.status.replace('_', ' ').title() }} - {{ case.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            (<a href="{{ url_for('view_case', case_id=case.id) }}">View</a>)
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No past crime records found for this Aadhaar.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="cases-section">
+        <div class="cases-list">
+            <h3>Ongoing Cases</h3>
+            {% if ongoing_cases %}
+            <table class="cases-table">
+                <thead>
+                    <tr>
+                        <th>Case ID</th>
+                        <th>Statement Preview</th>
+                        <th>IPC Sections</th>
+                        <th>Status</th>
+                        <th>Aadhaar</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in ongoing_cases %}
+                    <tr>
+                        <td>#{{ case.id }}</td>
+                        <td>{{ case.statement[:100] }}{% if case.statement|length > 100 %}...{% endif %}</td>
+                        <td>
+                            {% if case.ipc_sections %}
+                                {% set sections = case.ipc_sections|from_json %}
+                                {% for section in sections[:3] %}
+                                    <span class="ipc-badge">{{ section }}</span>
+                                {% endfor %}
+                                {% if sections|length > 3 %}
+                                    <span class="ipc-badge">+{{ sections|length - 3 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">No sections</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ case.status }}">{{ case.status.replace('_', ' ').title() }}</span>
+                        </td>
+                    <td>{{ case.aadhaar_number or '-' }}</td>
+                    <td>{{ case.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="table-actions">
+                            <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn-view">View</a>
+                            {% if (role == 'writer' and case.created_by == current_user.id) or role in ['sub_inspector', 'inspector'] %}
+                            <a href="{{ url_for('edit_case', case_id=case.id) }}" class="btn-edit-small">Edit</a>
+                            <button onclick="deleteCaseFromDashboard({{ case.id }})" class="btn-delete-small">Delete</button>
+                            {% endif %}
+                        </div>
+                    </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="no-cases">No ongoing cases found.</p>
+            {% endif %}
+        </div>
+        
+        <div class="cases-list">
+            <h3>Submitted Cases (Sent to Court)</h3>
+            {% if submitted_cases %}
+            <table class="cases-table">
+                <thead>
+                    <tr>
+                        <th>Case ID</th>
+                        <th>Statement Preview</th>
+                        <th>IPC Sections</th>
+                        <th>Status</th>
+                        <th>Aadhaar</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in submitted_cases %}
+                    <tr>
+                        <td>#{{ case.id }}</td>
+                        <td>{{ case.statement[:100] }}{% if case.statement|length > 100 %}...{% endif %}</td>
+                        <td>
+                            {% if case.ipc_sections %}
+                                {% set sections = case.ipc_sections|from_json %}
+                                {% for section in sections[:3] %}
+                                    <span class="ipc-badge">{{ section }}</span>
+                                {% endfor %}
+                                {% if sections|length > 3 %}
+                                    <span class="ipc-badge">+{{ sections|length - 3 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">No sections</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ case.status }}">{{ case.status.replace('_', ' ').title() }}</span>
+                        </td>
+                        <td>{{ case.aadhaar_number or '-' }}</td>
+                        <td>
+                            {% if case.approval_date %}
+                                {{ case.approval_date.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                {{ case.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn-view">View</a>
+                                {% if (role == 'writer' and case.created_by == current_user.id) or role in ['sub_inspector', 'inspector'] %}
+                                <a href="{{ url_for('edit_case', case_id=case.id) }}" class="btn-edit-small">Edit</a>
+                                <button onclick="deleteCaseFromDashboard({{ case.id }})" class="btn-delete-small">Delete</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="no-cases">No submitted cases found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+async function deleteCaseFromDashboard(caseId) {
+    if (confirm('Are you sure you want to delete case #' + caseId + '? This action cannot be undone and will also delete all associated evidence.')) {
+        try {
+            const response = await fetch('/case/' + caseId + '/delete', { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                alert('Case deleted successfully.');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete case'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+</script>
+{% endblock %}
