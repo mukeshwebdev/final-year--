@@ -1,0 +1,319 @@
+
+==============================================================
+  FIR MANAGEMENT SYSTEM — AI ASSISTANT PROMPT GUIDE
+  Copy everything below this line and paste it into any
+  new Claude / AI chat to get instant, accurate help.
+==============================================================
+
+--- PASTE START ---
+
+You are helping me run and use a full-stack web application called the
+"FIR Management System" — an AI-powered Police Station Portal built
+as a personal/college project. Here is everything you need to know
+about my system and the project so you can help me without me having
+to explain it repeatedly.
+
+================================================================
+1. MY LAPTOP / SYSTEM DETAILS
+================================================================
+
+Operating System  : Windows 11
+Username          : 2485198
+Node.js Version   : v25.6.1
+npm Version       : 11.13.0
+Python            : NOT installed (needs to be installed)
+Docker            : NOT installed
+PostgreSQL        : NOT installed (needs to be installed)
+
+================================================================
+2. PROJECT LOCATION (EXACT PATH)
+================================================================
+
+Root folder:
+C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\
+
+Sub-folders:
+  Prisma schema + seed  : ...\fir-management\prisma\
+  Python AI service     : ...\fir-management\ai-service\
+  Node.js backend       : ...\fir-management\server\
+  React frontend        : ...\fir-management\client\
+  Environment file      : ...\fir-management\.env   (must be created by copying .env.example)
+  Docker compose        : ...\fir-management\docker-compose.yml
+  README                : ...\fir-management\README.md
+
+================================================================
+3. TECH STACK
+================================================================
+
+Frontend   : React.js 18 + Tailwind CSS + Recharts
+Backend    : Node.js + Express.js (runs on port 5000)
+Database   : PostgreSQL 16 + Prisma ORM (default port 5432)
+AI Service : Python FastAPI (runs on port 8000)
+Auth       : JWT (access token 15min + refresh token 7 days)
+PDF        : PDFKit + QRCode npm package
+Email      : Nodemailer (SMTP)
+ORM        : Prisma with PostgreSQL
+
+================================================================
+4. THREE SERVICES TO RUN (always need all 3)
+================================================================
+
+SERVICE 1 — Backend (Node.js)
+  Location : ...\fir-management\server\
+  Command  : npm run dev
+  Port     : 5000
+  URL      : http://localhost:5000
+
+SERVICE 2 — AI Microservice (Python FastAPI)
+  Location : ...\fir-management\ai-service\
+  Command  : python main.py
+  Port     : 8000
+  URL      : http://localhost:8000
+  Note     : Requires Python venv activated first
+
+SERVICE 3 — Frontend (React)
+  Location : ...\fir-management\client\
+  Command  : npm start
+  Port     : 3000
+  URL      : http://localhost:3000 (opens in browser automatically)
+
+================================================================
+5. DATABASE SETUP (PostgreSQL — must be installed first)
+================================================================
+
+Database name     : fir_management
+Default user      : postgres
+Default password  : password
+Default port      : 5432
+
+Full connection string:
+  postgresql://postgres:password@localhost:5432/fir_management
+
+Prisma commands (run from inside the server folder):
+  npx prisma generate              -- generate Prisma client
+  npx prisma migrate dev           -- create all tables
+  node ../prisma/seed.js           -- fill with sample data
+  npx prisma studio                -- visual DB browser
+  npx prisma migrate reset         -- wipe and re-migrate (dev only)
+
+================================================================
+6. ENVIRONMENT FILE (.env)
+================================================================
+
+Location: C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\.env
+
+Full default content:
+  DATABASE_URL=postgresql://postgres:password@localhost:5432/fir_management
+  JWT_SECRET=your_super_secret_jwt_key_change_in_production
+  JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_in_production
+  JWT_EXPIRES_IN=15m
+  JWT_REFRESH_EXPIRES_IN=7d
+  GEMINI_API_KEY=your_gemini_api_key_here
+  AI_SERVICE_URL=http://localhost:8000
+  EMAIL_HOST=smtp.gmail.com
+  EMAIL_PORT=587
+  EMAIL_USER=your_email@gmail.com
+  EMAIL_PASS=your_app_password
+  PORT=5000
+  CLIENT_URL=http://localhost:3000
+  NODE_ENV=development
+  UPLOAD_DIR=uploads
+  MAX_FILE_SIZE=10485760
+
+How to create it: Open PowerShell in the fir-management folder and run:
+  copy .env.example .env
+
+================================================================
+7. FIRST-TIME FULL SETUP (in order — do this once)
+================================================================
+
+STEP 1 — Install PostgreSQL
+  Download from: https://www.postgresql.org/download/windows/
+  During install set password to: password
+  Keep default port: 5432
+  After install, open pgAdmin and create a database named: fir_management
+
+STEP 2 — Install Python 3.11
+  Download from: https://www.python.org/downloads/windows/
+  IMPORTANT: Tick "Add Python to PATH" during installation
+
+STEP 3 — Create .env file
+  cd "C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management"
+  copy .env.example .env
+
+STEP 4 — Set up Backend
+  cd server
+  npm install
+  npx prisma generate
+  npx prisma migrate dev --name init
+  node ../prisma/seed.js
+  npm run dev
+
+STEP 5 — Set up AI Service
+  cd ai-service
+  python -m venv venv
+  venv\Scripts\activate
+  pip install -r requirements.txt
+  python -m spacy download en_core_web_sm
+  python main.py
+
+STEP 6 — Start Frontend
+  cd client
+  npm install
+  npm start
+
+================================================================
+8. DAILY STARTUP (after first-time setup is done)
+================================================================
+
+Open 3 separate PowerShell terminals and run one in each:
+
+Terminal 1 (Backend):
+  cd "C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\server"
+  npm run dev
+
+Terminal 2 (AI Service):
+  cd "C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\ai-service"
+  venv\Scripts\activate
+  python main.py
+
+Terminal 3 (Frontend):
+  cd "C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\client"
+  npm start
+
+Then open browser and go to: http://localhost:3000
+
+================================================================
+9. LOGIN CREDENTIALS (after seed is run)
+================================================================
+
+Role          | Email                  | Password      | What They Can Do
+-------------|------------------------|---------------|----------------------------------------
+Super Admin  | admin@fir.gov          | Admin@123     | Full access, users, audit logs, charts
+Inspector    | inspector@fir.gov      | Inspect@123   | Approve FIRs, court, chargesheet
+SI           | si@fir.gov             | SI@12345      | Investigate cases, add notes
+Writer       | writer1@fir.gov        | Writer@123    | File FIRs, download PDFs
+Writer 2     | writer2@fir.gov        | Writer@456    | File FIRs, download PDFs
+Citizen      | citizen@fir.gov        | Citizen@123   | File complaint, track FIR status
+
+================================================================
+10. APPLICATION PAGES & URLs
+================================================================
+
+Page              | URL               | Who Can Access
+-----------------|-------------------|------------------------------------------
+Login            | /login            | Everyone
+Dashboard        | /dashboard        | All roles (different view per role)
+File New FIR     | /fir/new          | Writer, Inspector, Admin, Citizen
+FIR List         | /firs             | All roles
+FIR Detail       | /firs/:id         | All roles
+Aadhaar Search   | /search           | Writer, SI, Inspector, Admin
+Court Management | /court            | SI, Inspector, Admin
+Admin Panel      | /admin            | Super Admin only
+
+================================================================
+11. FIR STATUS FLOW
+================================================================
+
+FILED → UNDER_INVESTIGATION → CHARGESHEET_GENERATED → COURT → CLOSED
+
+- Only Inspector and Super Admin can change the status
+- Each status change is logged in the Audit Log with timestamp
+
+================================================================
+12. AI FEATURES (Python service must be running on port 8000)
+================================================================
+
+Feature               | What it does
+---------------------|---------------------------------------------------
+Crime Categorization  | Auto-suggests crime type from description text
+Urgency Scoring       | Rates case as LOW / MEDIUM / HIGH / CRITICAL
+NER (Entity Extract)  | Pulls accused names, locations, dates from text
+Duplicate Detection   | Warns if new FIR is >85% similar to existing one
+Case Summarization    | Generates 3-5 line summary (uses Gemini API)
+
+Note: If AI service is offline, the app still works fully — AI fields
+just won't be auto-filled. No code breaks.
+
+================================================================
+13. COMMON ERRORS & FIXES
+================================================================
+
+Error                          | Fix
+------------------------------|----------------------------------------------
+"Cannot connect to database"  | PostgreSQL not running — start the service
+"Token expired"               | JWT_SECRET missing in .env
+"AI features not working"     | Python service not running — run python main.py
+"Port already in use"         | Another app on 5000/3000 — kill it or change PORT in .env
+"Seed fails: email exists"    | Run: npx prisma migrate reset  then re-seed
+"Module not found"            | Run npm install in the failing service folder
+"spaCy model not found"       | Run: python -m spacy download en_core_web_sm
+"venv not activated"          | Run: venv\Scripts\activate  in ai-service folder
+
+================================================================
+14. FILE UPLOAD LOCATION
+================================================================
+
+Uploaded evidence files are stored at:
+  C:\Users\2485198\OneDrive - Cognizant\Desktop\Project\FInal final\fir-management\server\uploads\
+
+Allowed file types : JPG, PNG, PDF, DOC, DOCX
+Max file size      : 10 MB per file
+Max files per FIR  : 10 files
+
+================================================================
+15. HOW TO RESET EVERYTHING (fresh start)
+================================================================
+
+Step 1 — Stop all 3 terminals (Ctrl+C in each)
+Step 2 — In the server folder run:
+  npx prisma migrate reset
+Step 3 — Re-seed:
+  node ../prisma/seed.js
+Step 4 — Restart all 3 services (see Daily Startup above)
+
+================================================================
+16. WHAT I NEED HELP WITH (fill this in before pasting)
+================================================================
+
+[ ] I am getting this error: ________________________________
+[ ] I want to do this: ______________________________________
+[ ] The service that is failing: Backend / AI / Frontend
+[ ] The step I am stuck on: _________________________________
+
+--- PASTE END ---
+
+==============================================================
+  INSTRUCTIONS FOR USING THIS PROMPT GUIDE
+==============================================================
+
+1. Open a new chat with Claude at claude.ai
+2. Copy everything between "--- PASTE START ---"
+   and "--- PASTE END ---"
+3. Paste it as your FIRST message in the new chat
+4. Then describe your specific problem or question below it
+5. Claude will have full context and help you immediately
+
+EXAMPLE of what to type after pasting:
+
+   "....(paste the guide above)....
+
+   I am currently stuck on Step 4 (Backend setup).
+   When I run 'npx prisma migrate dev' I get this error:
+   [paste your error here]
+   Please help me fix it."
+
+==============================================================
+  QUICK CHEATSHEET (save this separately)
+==============================================================
+
+Start Backend  : cd server && npm run dev
+Start AI       : cd ai-service && venv\Scripts\activate && python main.py
+Start Frontend : cd client && npm start
+Open App       : http://localhost:3000
+Admin Login    : admin@fir.gov / Admin@123
+Reset DB       : npx prisma migrate reset (inside server folder)
+Re-seed DB     : node ../prisma/seed.js (inside server folder)
+View DB        : npx prisma studio (inside server folder)
+
+==============================================================
