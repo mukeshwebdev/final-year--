@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  INSPECTOR
+  SI
+  WRITER
+  CITIZEN
+}
+
+enum FIRStatus {
+  FILED
+  UNDER_INVESTIGATION
+  CHARGESHEET_GENERATED
+  COURT
+  CLOSED
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        Role
+  badgeNumber String?  @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  filedFIRs        FIR[]             @relation("FiledBy")
+  assignedFIRs     FIR[]             @relation("AssignedTo")
+  investigationLogs InvestigationLog[]
+  auditLogs        AuditLog[]
+  chargesheets     Chargesheet[]
+  watchlistEntries Watchlist[]
+}
+
+model Complainant {
+  id            String   @id @default(uuid())
+  name          String
+  address       String
+  phone         String
+  aadhaarNumber String?
+  email         String?
+  createdAt     DateTime @default(now())
+
+  firs FIR[]
+}
+
+model Accused {
+  id               String   @id @default(uuid())
+  name             String
+  address          String?
+  aadhaarNumber    String?
+  isRepeatOffender Boolean  @default(false)
+  isWatchlisted    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  firs      FIR[]
+  watchlist Watchlist[]
+}
+
+model FIR {
+  id               String       @id @default(uuid())
+  firNumber        String       @unique
+  complainantId    String
+  accusedId        String?
+  incidentDate     DateTime
+  incidentTime     String?
+  incidentLocation String
+  description      String       @db.Text
+  crimeType        String
+  urgency          UrgencyLevel @default(LOW)
+  status           FIRStatus    @default(FILED)
+  filedById        String
+  assignedToId     String?
+  witnessDetails   String?      @db.Text
+  aiSummary        String?      @db.Text
+  editHistory      Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  complainant       Complainant       @relation(fields: [complainantId], references: [id])
+  accused           Accused?          @relation(fields: [accusedId], references: [id])
+  filedBy           User              @relation("FiledBy", fields: [filedById], references: [id])
+  assignedTo        User?             @relation("AssignedTo", fields: [assignedToId], references: [id])
+  evidences         Evidence[]
+  investigationLogs InvestigationLog[]
+  courtHearings     CourtHearing[]
+  chargesheets      Chargesheet[]
+  auditLogs         AuditLog[]
+}
+
+model Evidence {
+  id         String   @id @default(uuid())
+  firId      String
+  fileUrl    String
+  fileName   String
+  fileType   String
+  fileSize   Int?
+  uploadedAt DateTime @default(now())
+
+  fir FIR @relation(fields: [firId], references: [id], onDelete: Cascade)
+}
+
+model InvestigationLog {
+  id        String   @id @default(uuid())
+  firId     String
+  note      String   @db.Text
+  addedById String
+  createdAt DateTime @default(now())
+
+  fir     FIR  @relation(fields: [firId], references: [id], onDelete: Cascade)
+  addedBy User @relation(fields: [addedById], references: [id])
+}
+
+model CourtHearing {
+  id          String    @id @default(uuid())
+  firId       String
+  hearingDate DateTime
+  courtName   String
+  judge       String?
+  order       String?   @db.Text
+  outcome     String?
+  nextDate    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  fir FIR @relation(fields: [firId], references: [id], onDelete: Cascade)
+}
+
+model Chargesheet {
+  id          String   @id @default(uuid())
+  firId       String
+  content     String   @db.Text
+  fileUrl     String?
+  generatedAt DateTime @default(now())
+  generatedById String
+
+  fir         FIR  @relation(fields: [firId], references: [id], onDelete: Cascade)
+  generatedBy User @relation(fields: [generatedById], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  fir  FIR? @relation(fields: [entityId], references: [id])
+}
+
+model Watchlist {
+  id         String   @id @default(uuid())
+  accusedId  String
+  reason     String   @db.Text
+  addedById  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  accused  Accused @relation(fields: [accusedId], references: [id])
+  addedBy  User    @relation(fields: [addedById], references: [id])
+}
+
+model MockAadhaarCitizen {
+  id            String   @id @default(uuid())
+  aadhaarNumber String   @unique
+  name          String
+  dob           DateTime
+  address       String
+  photoUrl      String?
+  phone         String
+  gender        String?
+  createdAt     DateTime @default(now())
+}
